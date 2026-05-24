@@ -17,6 +17,28 @@ function effective_cheri_mode() = {
 
 /* Error handlers for address check errors */
 
+function cheri_exception(
+  capCheckType   : CapCheckType,
+  capEx          : CapEx,
+  virtaddr(addr) : virtaddr,
+) -> ExecutionResult = {
+  if get_config_print_platform()
+  then print_platform("CHERI " ^ capchecktype_name(capCheckType) ^
+                      capex_name(capEx));
+
+  let t : sync_exception = struct {
+    trap    = E_Extension(EXC_CHERI),
+    excinfo = Some(convertInvalidAddr(addr)),
+    ext     = Some(
+      [Mk_Tval2(zeros()) with
+        TYPE = capchecktype_code(capCheckType),
+        CAUSE = capex_code(capEx),
+      ]
+    ),
+  };
+  trap(t)
+}
+
 function handle_cheri_exception(
   capCheckType   : CapCheckType,
   capEx          : CapEx,
@@ -105,9 +127,9 @@ function ext_control_check_pc(pc : xlenbits) -> Ext_ControlAddr_Check(ext_contro
   else    Ext_ControlAddr_OK(virtaddr(pc))
 }
 
-function ext_handle_control_check_error(err : ext_control_addr_error) -> unit = {
+function ext_handle_control_check_error(err : ext_control_addr_error) -> ExecutionResult = {
   let capEx = err;
-  handle_cheri_exception(CapCheckType_JBr, capEx, virtaddr(zeros()))
+  cheri_exception(CapCheckType_JBr, capEx, virtaddr(zeros()))
 }
 
 /* CHERI data address checks */
@@ -182,9 +204,9 @@ function ext_data_get_addr(base_reg : regidx, offset : xlenbits, acc : AccessTyp
   }
 }
 
-function ext_handle_data_check_error(err : ext_data_addr_error) -> unit = {
+function ext_handle_data_check_error(err : ext_data_addr_error) -> ExecutionResult = {
   let capEx = err.cause;
-  handle_cheri_exception(CapCheckType_Data, capEx, err.addr)
+  cheri_exception(CapCheckType_Data, capEx, err.addr)
 }
 
 /* Default implementations of these hooks permit all accesses.  */
@@ -200,8 +222,8 @@ function ext_check_xret_priv (p : Privilege) : Privilege -> bool = {
 }
 
 /* Called if above check fails */
-function ext_fail_xret_priv () : unit -> unit =
-  handle_cheri_exception(CapCheckType_Inst, CapEx_PermissionViolation, virtaddr(zeros()))
+function ext_fail_xret_priv () : unit -> ExecutionResult =
+  cheri_exception(CapCheckType_Inst, CapEx_PermissionViolation, virtaddr(zeros()))
 
 /* Require ASR on any CSR that is not "unprivileged", i.e. accessible from U mode
   The exception for this is Zstid CSRs which always require ASR on writes and never require
@@ -221,10 +243,10 @@ function ext_check_CSR (csrno : bits(12), p : Privilege, isWrite : bool, op : cs
   if not(pcc_access_system_regs()) & requires_ASR_perm(csrno, isWrite) then Some(CHERIPermExc)
   else None()
 
-function ext_check_CSR_fail (fail_type : ext_csr_exc_type) -> unit = {
+function ext_check_CSR_fail (fail_type : ext_csr_exc_type) -> ExecutionResult = {
   match fail_type {
-    CHERIPermExc => handle_cheri_exception(CapCheckType_Inst, CapEx_PermissionViolation, virtaddr(zeros())),
-    IllegalInstruction => handle_illegal(),
+    CHERIPermExc => cheri_exception(CapCheckType_Inst, CapEx_PermissionViolation, virtaddr(zeros())),
+    IllegalInstruction => illegal_instruction(),
   };
 }
 
