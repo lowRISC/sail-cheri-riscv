@@ -581,7 +581,7 @@ function legalizeSL(stored_cap : Capability, auth_cap : Capability) -> Capabilit
 
 // Implementations are allowed to retain invalid capability permissions loaded from memory
 // instead of following the ACPERM behaviour of reducing them to no permissions.
-let sys_legalize_malformed_permission_on_load = false
+let sys_legalize_malformed_permission_on_load = true
 
 function legalizeLoadedPermissions(loaded_cap : Capability, auth_cap : Capability) -> Capability = {
   // CL is not a permission so it is always legalized.
