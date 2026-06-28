@@ -11,10 +11,20 @@ union clause ast = C_LC : (cregidx, cregidx, bits(9))
 
 // This instruction is only available in capability encoding mode.
 // For RV32 this replaces the encoding of [C.FLW], RV64 uses [C.FLD].
-mapping clause encdec_compressed_capmode = C_LC(cdc, csc1, ui8 @ ui76 @ ui54 @ 0b0000)                              if xlen == 64
-  <-> 0b001 @ ui54 : bits(2) @ ui8 : bits(1) @ encdec_creg(csc1) @ ui76 : bits(2) @ encdec_creg(cdc) @ 0b00 if xlen == 64
-mapping clause encdec_compressed_capmode = C_LC(cdc, csc1, 0b0 @ ui76 @ ui53 @ 0b000)               if xlen == 32
-  <-> 0b011 @ ui53 : bits(3) @ encdec_creg(csc1) @ ui76 : bits(2) @ encdec_creg(cdc) @ 0b00 if xlen == 32
+mapping clause encdec_compressed_capmode =
+    C_LC(cdc, csc1, ui8 @ ui76 @ ui54 @ 0b0000)
+    if xlen == 64
+  <->
+    0b001 @ ui54 : bits(2) @ ui8 : bits(1) @ encdec_creg(csc1) @ ui76 : bits(2) @ encdec_creg(cdc) @ 0b00
+    if xlen == 64
+
+mapping clause encdec_compressed_capmode =
+    C_LC(cdc, csc1, 0b0 @ ui76 @ ui53 @ 0b000)
+    if xlen == 32
+  <->
+    0b011 @ ui53 : bits(3) @ encdec_creg(csc1) @ ui76 : bits(2) @ encdec_creg(cdc) @ 0b00
+    if xlen == 32
+
 mapping clause assembly = C_LC(cdc, csc1, uimm)
   <-> "c.lc" ^ spc() ^ cap_creg_name(cdc) ^ sep() ^ cap_creg_name(csc1) ^ sep() ^ hex_bits_9(uimm)
 
@@ -270,9 +280,11 @@ union clause ast = C_MV_capmode : (regidx, regidx)
 // This instruction is only available in capability encoding mode.
 // This instruction replaces the encoding of [C.MV].
 mapping clause encdec_compressed_capmode = C_MV_capmode(cd, cs2)
-  if cd != zreg & cs2 != zreg
+  // if cd != zreg & cs2 != zreg
+  if cs2 != zreg
     <-> 0b100 @ 0b0 @ encdec_reg(cd) @ encdec_reg(cs2) @ 0b10
-  if cd != zreg & cs2 != zreg
+  // if cd != zreg & cs2 != zreg
+  if cs2 != zreg
 
 /*!
  * insnref: cmv_16bit capmode
