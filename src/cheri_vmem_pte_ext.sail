@@ -66,27 +66,25 @@ function pte_permission_ok(
 
 // This needs a separate type declaration due to this possible bug:
 // https://github.com/rems-project/sail/issues/984
-val updated_cheri_pte_bits : forall 'pte_size, 'pte_size in {32, 64} . (bits('pte_size), AccessType(ext_access_type)) -> option(bits('pte_size))
+val updated_cheri_pte_bits : (bits(64), AccessType(ext_access_type)) -> option(bits(64))
 function updated_cheri_pte_bits(pte, ac) =
   match ext_bits_of_PTE(pte) {
     Some(ext) if isTaggedWrite(ac) & ext[CW] == 0b0 & ext[CRG] == 0b1 => {
       // CHERI PTEs & PTE ext bits only exist with 64-bit PTEs.
-      assert('pte_size == 64);
       Some([pte with 63 .. 54 = [ext with CW = 0b1, CRG = mstatus[UCRG]].bits])
     },
     _ => None(),
   }
 
-function update_pte forall 'pte_width, 'pte_width in {4, 8} . (
-  pte_width : int('pte_width),
+function update_pte (
   pteAddr   : physaddr,
-  pte       : bits('pte_width * 8),
+  pte       : bits(64),
   ac        : AccessType(ext_access_type),
   ext_ptw   : ext_ptw,
-) -> (result(option(bits('pte_width * 8)), PTW_Error), ext_ptw) = {
+) -> (result(option(bits(64)), PTW_Error), ext_ptw) = {
   // Get the updated PTE, and the fault cause (if there turns out to
   // be one when we try to write it).
-  let (pte, fault_cause) : (bits('pte_width * 8), CheriPageFault) = match updated_pte_bits(pte, ac) {
+  let (pte, fault_cause) : (bits(64), CheriPageFault) = match updated_pte_bits(pte, ac) {
     Some(pte) => match updated_cheri_pte_bits(pte, ac) {
       Some(pte) => (pte, PageFault_Both),
       None() => (pte, PageFault_NonCheri),
@@ -100,7 +98,7 @@ function update_pte forall 'pte_width, 'pte_width in {4, 8} . (
   if not(plat_enable_dirty_update()) then {
     (Err(PTW_PTE_Update()), {ext_ptw with cheri_page_fault = fault_cause})
   } else {
-    match write_pte(pteAddr, 'pte_width, pte) {
+    match write_pte(pteAddr, 8, pte) {
       Ok(_) => (Ok(Some(pte)), ext_ptw),
       Err(_) => (Err(PTW_Access()), {ext_ptw with cheri_page_fault = fault_cause}),
     }
